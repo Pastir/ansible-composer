@@ -1,0 +1,32 @@
+---
+- name: Get expected checksum
+  ansible.builtin.shell: php -r 'copy("https://composer.github.io/installer.sig", "php://stdout");'
+  register: checksum
+  become: yes
+
+- name: install Composer
+  block:
+    - name: Validate Composer checksum
+      get_url:
+        checksum: "sha384:{{ checksum.stdout }}"
+        dest: /usr/src/
+        url: https://getcomposer.org/installer
+      become: yes
+
+    - name: Download and install Composer
+      ansible.builtin.shell: curl -sS https://getcomposer.org/installer | php
+      args:
+        chdir: /usr/src/
+        creates: /usr/local/bin/composer
+      become: yes
+
+    - name: Add Composer to global path
+      copy:
+        dest: /usr/bin/composer
+        group: root
+        mode: '0755'
+        owner: root
+        src: /usr/src/composer.phar
+        remote_src: yes
+      become: yes
+  when:  checksum.stdout is defined
